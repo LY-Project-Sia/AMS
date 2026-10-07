@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0caf57" id="themeColorMeta">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="BCC Student Grading and Attendance Management System">
+<title>BCC Student | Grading & Attendance Management System</title>
+<link rel="icon" href="bcc-logo.jpg">
+<script>(function(){try{var d=JSON.parse(localStorage.getItem("bcc_attendance_final_v2")||"null");if(d&&d.settings&&d.settings.theme)document.documentElement.dataset.theme=d.settings.theme==="dark"?"dark":"light";else document.documentElement.dataset.theme="dark";}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<div id="setupScreen" class="auth-screen hidden">
+  <button class="auth-theme-toggle icon-btn" type="button" data-theme-action title="Switch theme" aria-label="Switch theme" aria-pressed="false"></button>
+  <div class="auth-card">
+    <div class="auth-brand"><div class="logo-shell auth-logo"><img src="bcc-logo.jpg" alt="BCC logo"></div><div><strong>BCC Student</strong><span>Attendance Management System</span></div></div>
+    <div class="auth-copy"><span class="eyebrow">INITIAL ADMIN SETUP</span><h1>Create administrator account</h1><p>Set up the first administrator for this installation. Your account is stored locally on this device.</p></div>
+    <form id="setupForm" class="auth-form">
+      <label>Administrator name<input id="setupName" required maxlength="80" placeholder="e.g. School Administrator"></label>
+      <label>Username<input id="setupUsername" required maxlength="40" autocomplete="username" placeholder="Choose a username"></label>
+      <label>Password<div class="password-wrap"><input id="setupPassword" type="password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters"><button type="button" class="password-toggle" onclick="togglePassword('setupPassword',this)" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="eye-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"></svg></button></div></label>
+      <label>Confirm password<div class="password-wrap"><input id="setupConfirm" type="password" required minlength="6" autocomplete="new-password" placeholder="Repeat password"><button type="button" class="password-toggle" onclick="togglePassword('setupConfirm',this)" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="eye-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"></svg></button></div></label>
+      <div id="setupMessage" class="auth-message hidden" role="alert" aria-live="polite"></div><button class="primary full" type="submit">Create Administrator</button>
+    </form>
+    <div class="auth-note">For a multi-computer school deployment, connect this interface to a secure server database and authentication service.</div>
+  </div>
+</div>
+
+<div id="loginScreen" class="auth-screen hidden">
+  <button class="auth-theme-toggle icon-btn" type="button" data-theme-action title="Switch theme" aria-label="Switch theme" aria-pressed="false"></button>
+  <div class="auth-card">
+    <div class="auth-brand"><div class="logo-shell auth-logo"><img src="bcc-logo.jpg" alt="BCC logo"></div><div><strong>BCC Student</strong><span>Attendance Management System</span></div></div>
+    <div class="auth-copy"><span class="eyebrow">ADMIN PORTAL</span><h1>Welcome back</h1><p>Sign in to manage students, sections, attendance and reports.</p></div>
+    <form id="loginForm" class="auth-form">
+      <label>Username<input id="username" required autocomplete="username" placeholder="Username"></label>
+      <label>Password<div class="password-wrap"><input id="password" type="password" required autocomplete="current-password" placeholder="Password"><button type="button" class="password-toggle" onclick="togglePassword('password',this)" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="eye-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"></svg></button></div></label>
+      <div id="loginMessage" class="auth-message hidden" role="alert" aria-live="polite"></div><button class="primary full" type="submit">Sign In</button>
+    </form>
+    <div class="auth-note">Authorized administrators only.</div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<header class="topbar">
+  <div class="brand">
+    <div class="logo-shell"><img src="bcc-logo.jpg" alt="BCC logo"></div>
+    <div><strong>BCC Student</strong><small>Attendance Management System</small></div>
+  </div>
+  <div class="top-actions">
+    <button id="mobileMenuBtn" class="icon-btn mobile-menu-btn" type="button" title="Open navigation" aria-label="Open navigation" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button id="themeToggle" class="icon-btn theme-toggle" type="button" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"></button>
+    <div class="date-chip"><span class="dot"></span><span id="today"></span></div>
+    <div class="admin-chip"><div class="avatar" id="adminAvatar">A</div><div><b id="adminDisplay">Administrator</b><small>Administrator</small></div></div>
+    <button id="logoutBtn" class="icon-btn logout-btn" type="button" title="Sign out" aria-label="Sign out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m14 8 4 4-4 4M9 12h9"/></svg></button>
+  </div>
+</header>
+
+<div class="layout">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-label">MAIN MENU</div>
+  <button class="nav active" data-page="dashboard"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5M9 21v-6h6v6"/></svg></span><span>Dashboard</span></button>
+  <button class="nav" data-page="attendance"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/><path d="M12 3v2M4.9 5.1l1.4 1.4M3 12h2M19 12h2"/></svg></span><span>Attendance</span></button>
+  <button class="nav" data-page="grades"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h14M5 20h14M7 5l6 7-6 7M13 12h5"/></svg></span><span>Grades</span></button>
+  <button class="nav" data-page="students"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0M8 13h8"/></svg></span><span>Students</span></button>
+  <button class="nav" data-page="sections"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Sections</span></button>
+  <button class="nav" data-page="reports"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/><path d="M3 20h18"/></svg></span><span>Reports</span></button>
+  <div class="sidebar-label lower">SYSTEM</div>
+  <button class="nav" data-page="settings"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M4.9 15.2 3.8 17l1.9 1.9 1.8-1.1M19.1 15.2l1.1 1.8-1.9 1.9-1.8-1.1M8.8 4.2 10 2.8h4l1.2 1.4M15.2 19.8 14 21.2h-4l-1.2-1.4M4.2 8.8 2.8 10v4l1.4 1.2M19.8 8.8 21.2 10v4l-1.4 1.2"/></svg></span><span>Settings</span></button>
+  <div class="academic-panel" id="academicPanel" aria-label="Academic period">
+    <div class="academic-panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 9 9-5 9 5-9 5-9-5Z"/><path d="M6 11v5c2 2 10 2 12 0v-5M21 9v6"/></svg></div>
+    <div class="academic-panel-copy"><small>ACADEMIC YEAR</small><b id="academicYearDisplay">2026 - 2027</b><span id="academicTermDisplay">1st Semester</span></div>
+    <button type="button" class="academic-change" onclick="showPage('settings')" title="Change academic year and term"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg><span>Change Term</span></button>
+  </div>
+  <div class="sidebar-footer"><img src="bcc-logo.jpg" alt="BCC logo"><div><b>BCC Student</b><small>Official Attendance Portal</small></div></div>
+</aside>
+<div id="sidebarBackdrop" class="sidebar-backdrop hidden" aria-hidden="true"></div>
+
+<main class="content">
+<section id="dashboard" class="page">
+  <div class="page-head"><div><span class="eyebrow">OVERVIEW</span><h2>Dashboard</h2><p>Monitor today's attendance and student registration at a glance.</p></div><button class="primary" onclick="showPage('attendance')">Take Attendance <span class="action-arrow" aria-hidden="true">→</span></button></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></div><div><span>Registered Students</span><b id="statStudents">0</b><small>Active student records</small></div></div>
+    <div class="stat"><div class="stat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></div><div><span>Present Today</span><b id="statPresent">0</b><small id="presentRate">0% of registered</small></div></div>
+    <div class="stat"><div class="stat-icon absent-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 20H3L12 4Z"/><path d="M12 9v5M12 17h.01"/></svg></div><div><span>Absent Today</span><b id="statAbsent">0</b><small id="absentRate">0% of registered</small></div></div>
+    <div class="stat"><div class="stat-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></div><div><span>Active Sections</span><b id="statSections">0</b><small>Sorted by enrollment</small></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><div><h3>Today's Attendance</h3><p class="muted">Current attendance status for all registered students.</p></div><button class="secondary" onclick="showPage('attendance')">Open</button></div>
+      <div id="dashboardAttendance"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h3>Students by Section</h3><p class="muted">Sections ranked by registered students.</p></div></div>
+      <div id="sectionSummary"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:15px">
+    <div class="card-head"><div><h3>Needs Attention</h3><p class="muted">Active students with a failing average and/or attendance below 80%.</p></div><button class="secondary" onclick="showPage('grades')">Open Grades</button></div>
+    <div id="atRiskList"></div>
+  </div>
+</section>
+
+<section id="attendance" class="page hidden">
+  <div class="page-head"><div><span class="eyebrow">DAILY RECORD</span><h2>Attendance</h2><p>Mark each registered student as Present or Absent.</p></div><button class="primary" onclick="exportAttendanceFiltered()">Download Excel <span class="action-arrow" aria-hidden="true">↓</span></button></div>
+  <div class="toolbar">
+    <label>Date<input type="date" id="attendanceDate"></label>
+    <label>Section<select id="attendanceSection"></select></label>
+    <label class="grow">Search student<input id="attendanceSearch" placeholder="Search by ID or name"></label>
+    <button class="primary" onclick="markAll('Present')">✓ Mark Filtered Present</button>
+    <button class="danger" onclick="markAll('Absent')">✕ Mark Filtered Absent</button>
+    <button class="secondary" onclick="markUnmarkedAs('Present')">⚡ Unmarked → Present</button><button class="danger" onclick="markUnmarkedAs('Absent')">⚡ Unmarked → Absent</button><button class="secondary" onclick="clearFilteredAttendance()">↺ Unmark Filtered</button>
+  </div>
+  <div class="attendance-summary" id="attendanceQuickSummary"></div>
+  <div class="attendance-tip" id="attendanceScheduleNote"></div>
+  <div class="attendance-tip">💡 <b>Fast checking:</b> click a student status to cycle <b>Unmarked → Present → Absent → Unmarked</b>. Use <kbd>P</kbd> for Present and <kbd>A</kbd> for Absent when a row is focused.</div>
+  <div class="card table-wrap responsive-cards"><table id="attendanceTableEl"><thead><tr><th>#</th><th data-sort="id">Student ID</th><th data-sort="name">Student</th><th data-sort="section">Section</th><th data-sort="status">Status</th><th>Action</th></tr></thead><tbody id="attendanceTable"></tbody></table></div>
+</section>
+
+<section id="grades" class="page hidden">
+  <div class="grades-hero">
+    <div class="page-head grades-page-head">
+      <div class="grades-title-block">
+        <span class="eyebrow">ACADEMIC RECORD</span>
+        <div class="grades-title-row"><h2>Grades</h2><span class="live-badge"><i></i> Live</span></div>
+        <p>Manage component scores, monitor performance, and make academic decisions from one streamlined gradebook.</p>
+      </div>
+      <div class="page-head-actions grades-actions" aria-label="Grade actions">
+        <button class="secondary" onclick="downloadGradeTemplate()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span> Download Template</button>
+        <button class="secondary" onclick="openGradeImportModal()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg></span> Import Scores</button>
+        <button class="primary" onclick="exportGrades()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"/><path d="M9 12h6M9 16h6M15 3v5h4"/></svg></span> Download Excel <span class="action-arrow" aria-hidden="true">↓</span></button>
+        <button class="secondary" onclick="openGradingSettings()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 15.2a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-2.6v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4v-2.6h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h2.6v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v2.6h-.1a1.7 1.7 0 0 0-1.6 1Z"/></svg></span> Edit Computation</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grade-filter-card toolbar grade-toolbar">
+    <div class="filter-heading"><span class="filter-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 5 5"/></svg></span><div><b>Gradebook Filters</b><small>Find students and narrow the active grade list.</small></div></div>
+    <label>Section<select id="gradeSection"></select></label>
+    <label class="grow">Search student<div class="search-control"><span aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 5 5"/></svg></span><input id="gradeSearch" placeholder="Search by student ID or name" autocomplete="off"></div></label>
+    <button class="secondary clear-grade-btn" type="button" onclick="clearGradeFilters()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></span> Clear filters</button>
+  </div>
+
+  <div class="grade-kpis" aria-label="Grade summary">
+    <div class="grade-kpi students-kpi"><span class="kpi-icon students" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 21a7 7 0 0 1 14 0M17 4.5a2.5 2.5 0 0 1 0 5M19 14a5 5 0 0 1 2 4"/></svg></span><div><small>Total Students</small><b id="gradeStatStudents">0</b><em>active records</em></div></div>
+    <div class="grade-kpi passing-kpi"><span class="kpi-icon passing" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><small>Passing</small><b id="gradeStatPassing">0</b><em id="gradeStatPassingRate">0%</em></div></div>
+    <div class="grade-kpi failing-kpi"><span class="kpi-icon failing" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg></span><div><small>At Risk</small><b id="gradeStatRisk">0</b><em id="gradeStatRiskRate">0%</em></div></div>
+    <div class="grade-kpi average-kpi"><span class="kpi-icon average" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h3l2-6 4 12 2-6h3"/></svg></span><div><small>Class Average</small><b id="gradeStatAverage">0.00</b><em>current view</em></div></div>
+    <div class="grade-kpi top-kpi"><span class="kpi-icon top" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg></span><div><small>Top Score</small><b id="gradeStatTop">0.00</b><em>highest final grade</em></div></div>
+  </div>
+
+  <div class="card grade-table-card">
+    <div class="grade-table-head">
+      <div><span class="eyebrow">STUDENT GRADEBOOK</span><h3>Academic Performance</h3><p>Click a column heading to sort. Scores are editable directly in the table.</p></div>
+      <div class="grade-legend"><span><i class="legend-dot passing-dot"></i> Passing</span><span><i class="legend-dot risk-dot"></i> At Risk</span><span class="computation-pill">Weighted computation</span></div>
+    </div>
+    <div class="table-scroll grade-scroll" tabindex="0" aria-label="Scrollable student gradebook">
+      <table id="gradesTableEl"><thead><tr><th data-sort="id">Student ID</th><th data-sort="name">Student</th><th data-sort="section">Section</th><th data-sort="quiz">Quiz<br><small>15%</small></th><th data-sort="activity">Activity<br><small>15%</small></th><th data-sort="summative">Summative<br><small>10%</small></th><th data-sort="exam">Exam<br><small>30%</small></th><th data-sort="performance">Performance Task<br><small>20%</small></th><th class="attendance-col" data-sort="attendance">Attendance<br><small>10%</small></th><th data-sort="total">Final Grade</th><th data-sort="average">Average</th><th data-sort="standing">Standing</th><th>Decision</th></tr></thead><tbody id="gradesTable"></tbody></table>
+    </div>
+    <div class="grade-table-footer grade-table-footer-advanced">
+      <div class="grade-footer-tip"><span>Tip: use <kbd>Ctrl</kbd> + <kbd>K</kbd> to jump to student search.</span><span>Horizontal scrolling is contained inside the gradebook.</span></div>
+      <div class="grade-pagination" id="gradePagination" aria-label="Gradebook pagination"></div>
+    </div>
+  </div>
+</section>
+
+<section id="students" class="page hidden">
+  <div class="page-head"><div><span class="eyebrow">REGISTRY</span><h2>Student Management</h2><p>Maintain complete student records and organize them by registered section.</p></div><div class="page-head-actions"><button class="secondary" onclick="openImportModal()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg></span> Import Section</button><button class="primary" onclick="openStudentModal()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span> Add Student</button></div></div>
+  <div class="toolbar">
+    <label>Section<select id="studentSectionFilter"></select></label>
+    <label>Status<select id="studentStatusFilter"><option value="">All Statuses</option><option value="Active">Active</option><option value="Dropped">Dropped</option></select></label>
+    <label class="grow">Search<input id="studentSearch" placeholder="Student ID or full name"></label>
+    <button class="secondary" onclick="exportStudents()">Export Student List</button>
+    <button class="danger" onclick="exportDropouts()">Export Dropout List</button>
+  </div>
+  <div class="card table-wrap responsive-cards"><table id="studentsTableEl"><thead><tr><th>#</th><th data-sort="id">Student ID</th><th data-sort="name">Name</th><th data-sort="gender">Gender</th><th data-sort="section">Section</th><th data-sort="year">Year Level</th><th data-sort="contact">Contact</th><th data-sort="status">Status</th><th data-sort="droppedAt">Dropped On</th><th>Actions</th></tr></thead><tbody id="studentsTable"></tbody></table></div>
+</section>
+</section>
+
+<section id="sections" class="page hidden">
+  <div class="page-head"><div><span class="eyebrow">ORGANIZATION</span><h2>Section Management</h2><p>Sections are automatically ranked by the number of registered students. Use <b>Export Data</b> on any section to download that section's students and grades only.</p></div><button class="primary" onclick="openSectionModal()">＋ Add Section</button></div>
+  <div class="section-grid" id="sectionCards"></div>
+</section>
+
+<section id="reports" class="page hidden">
+  <div class="page-head"><div><span class="eyebrow">REPORTING</span><h2>Attendance Reports</h2><p>Filter historical attendance and export professional Excel reports.</p></div><button class="primary" onclick="exportFilteredReport()">Download Excel <span class="action-arrow" aria-hidden="true">↓</span></button></div>
+  <div class="toolbar">
+    <label>From<input type="date" id="reportFrom"></label>
+    <label>To<input type="date" id="reportTo"></label>
+    <label>Section<select id="reportSection"></select></label>
+    <label>Status<select id="reportStatus"><option value="">All Statuses</option><option>Present</option><option>Absent</option></select></label>
+    <button class="secondary" onclick="renderReports()">Apply Filters</button>
+  </div>
+  <div class="report-summary" id="reportSummary"></div>
+  <div class="card table-wrap responsive-cards"><table id="reportsTableEl"><thead><tr><th data-sort="date">Date</th><th data-sort="id">Student ID</th><th data-sort="name">Name</th><th data-sort="section">Section</th><th data-sort="status">Status</th></tr></thead><tbody id="reportsTable"></tbody></table></div>
+</section>
+
+<section id="settings" class="page hidden">
+  <div class="page-head"><div><span class="eyebrow">SYSTEM</span><h2>Settings</h2><p>Configure the portal and protect your local system data.</p></div></div>
+  <div class="settings-grid">
+    <div class="card settings">
+      <div class="card-head"><div><h3>Portal Information</h3><p class="muted">These details appear throughout the system.</p></div></div>
+      <label>School / Organization Name<input id="schoolName" maxlength="120"></label>
+      <label>Administrator Display Name<input id="adminNameSetting" maxlength="80"></label>
+      <div class="settings-two-col">
+        <label>Academic Year<input id="academicYearSetting" maxlength="30" placeholder="2026 - 2027"></label>
+        <label>Current Term<select id="academicTermSetting"><option>1st Semester</option><option>2nd Semester</option><option>Summer</option><option>Midyear</option></select></label>
+      </div>
+      <button class="primary" onclick="saveSettings()">Save Changes</button>
+    </div>
+    <div class="card settings">
+      <div class="card-head"><div><h3>Data Protection</h3><p class="muted">Keep an external backup of your local records.</p></div></div>
+      <div class="settings-actions"><button class="secondary" onclick="backupData()">Download JSON Backup</button><button class="secondary" onclick="document.getElementById('restoreFile').click()">Restore Backup</button><input id="restoreFile" type="file" accept=".json" class="hidden" onchange="restoreData(event)"></div>
+      <div class="security-note"><span>✓</span><div><b>Local data protection</b><small>Records are stored in this browser. Do not clear browser storage without first making a backup.</small></div></div>
+    </div>
+    <div class="card settings">
+      <div class="card-head"><div><h3>Grading Options</h3><p class="muted">Edit the grading weights anytime. The total must equal 100%.</p></div><button class="secondary" onclick="openGradingSettings()"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 15.2a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-2.6v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4v-2.6h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h2.6v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1Z"/></svg></span> Edit</button></div>
+      <div class="grade-weight-grid" id="gradeWeightGrid"></div>
+      <div class="security-note"><span>ⓘ</span><div><b>Final Grade Formula</b><small id="gradeFormulaText">Weighted component scores are calculated automatically. Attendance is based on recorded Present/Absent sessions.</small></div></div>
+    </div>
+    <div class="card settings">
+      <div class="card-head"><div><h3>Attendance Schedule</h3><p class="muted">Choose which weekdays (Monday–Sunday) count as class days, by Year Level or Section. Attendance is graded on class days only.</p></div><button class="secondary" onclick="openAttendanceSchedule()">Edit</button></div>
+      <div class="grade-weight-grid" id="attendanceScheduleSummary"></div>
+      <div class="security-note"><span>ⓘ</span><div><b>How it works</b><small>A Section setting overrides the Year Level setting, which overrides the Default (Mon–Fri). Present/Absent marks on non-class days are ignored in the attendance grade. The attendance weight stays at 10% unless you change it in Grading Options.</small></div></div>
+    </div>
+    <div class="card settings">
+      <div class="card-head"><div><h3>Excel Exports</h3><p class="muted">Download everything merged in one workbook, or just what you need per page.</p></div></div>
+      <div class="settings-actions"><button class="primary" onclick="exportMasterWorkbook()">⇩ Download All Data (Merged Excel)</button><button class="secondary" onclick="exportMasterWorkbook(true)">⇩ Excel Backup + Computation</button></div>
+      <div class="security-note"><span>ⓘ</span><div><b>Individual downloads</b><small>Attendance, Grades, Students, Dropouts and Section pages each have their own Download/Export button — apply filters first (e.g. pick a Section) to export just that subset.</small></div></div>
+    </div>
+  </div>
+</section>
+</main>
+</div>
+</div>
+
+<div id="studentModal" class="modal hidden"><div class="modal-card"><button class="close" onclick="closeModal('studentModal')">×</button><div class="modal-title"><span class="eyebrow">STUDENT RECORD</span><h2 id="studentModalTitle">Add Student</h2><p>Enter complete registration details.</p></div><form id="studentForm" class="modal-form">
+<input type="hidden" id="editStudentId">
+<label>Student ID<input id="sId" required maxlength="40" placeholder="e.g. BCC-2026-001"></label>
+<label>Full Name<input id="sName" required maxlength="120" placeholder="Last Name, First Name, Middle Name"></label>
+<label>Gender<select id="sGender"><option>Male</option><option>Female</option><option>Other</option></select></label>
+<label>Section<select id="sSection" required></select></label>
+<label>Year Level<select id="sYear"><option>1st Year</option><option>2nd Year</option><option>3rd Year</option><option>4th Year</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select></label>
+<label>Contact / Email<input id="sContact" maxlength="120" placeholder="Phone number or email"></label>
+<div class="modal-actions"><button type="button" class="secondary" onclick="closeModal('studentModal')">Cancel</button><button class="primary">Save Student</button></div>
+</form></div></div>
+
+<div id="sectionModal" class="modal hidden"><div class="modal-card compact"><button class="close" onclick="closeModal('sectionModal')">×</button><div class="modal-title"><span class="eyebrow">SECTION</span><h2>Add Section</h2><p>Create a section for student registration.</p></div><form id="sectionForm" class="modal-form">
+<label>Section Name<input id="sectionName" required maxlength="80" placeholder="e.g. BSIT 1A"></label>
+<label>Program / Course<input id="sectionProgram" maxlength="120" placeholder="e.g. Bachelor of Science in Information Technology"></label>
+<div class="modal-actions"><button type="button" class="secondary" onclick="closeModal('sectionModal')">Cancel</button><button class="primary">Save Section</button></div>
+</form></div></div>
+
+
+<div id="importModal" class="modal hidden"><div class="modal-card import-card"><button class="close" onclick="closeModal('importModal')">×</button><div class="modal-title"><span class="eyebrow">BULK REGISTRATION</span><h2>Import Entire Section</h2><p>Upload an Excel, CSV, Word (.docx), or text-based PDF roster. The system will read the student list, preview it, and register the whole section in one step.</p></div>
+<div class="import-drop" id="importDrop"><div class="import-icon">⇧</div><b>Drop your roster file here</b><span>or click to browse</span><small>Supported: .xlsx, .xls, .csv, .docx, .pdf</small><input id="sectionImportFile" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf" hidden></div>
+<div class="import-options"><label class="grow">Section<select id="importSectionSelect"></select></label><button class="secondary" type="button" onclick="createImportSection()">＋ New Section</button></div>
+<div id="importFileInfo" class="import-info hidden"></div><div id="importPreview" class="import-preview hidden"></div>
+<div class="modal-actions"><button type="button" class="secondary" onclick="closeModal('importModal')">Cancel</button><button id="importConfirmBtn" type="button" class="primary" disabled onclick="commitSectionImport()">Import Students</button></div></div></div>
+
+<div id="gradeImportModal" class="modal hidden"><div class="modal-card import-card"><button class="close" onclick="closeModal('gradeImportModal')">×</button><div class="modal-title"><span class="eyebrow">BULK SCORE ENTRY</span><h2>Import Scores</h2><p>Upload the Excel/CSV grade template (Student ID must match). Matching students' scores will be updated; existing scores for components left blank stay unchanged.</p></div>
+<div class="import-drop" id="gradeImportDrop"><div class="import-icon">⇧</div><b>Drop your filled-in grade sheet here</b><span>or click to browse</span><small>Supported: .xlsx, .xls, .csv — use Download Template first</small><input id="gradeImportFile" type="file" accept=".xlsx,.xls,.csv" hidden></div>
+<div id="gradeImportInfo" class="import-info hidden"></div><div id="gradeImportPreview" class="import-preview hidden"></div>
+<div class="modal-actions"><button type="button" class="secondary" onclick="closeModal('gradeImportModal')">Cancel</button><button id="gradeImportConfirmBtn" type="button" class="primary" disabled onclick="commitGradeImport()">Import Scores</button></div></div></div>
+
+<div id="scoreModal" class="modal hidden"><div class="modal-card compact"><button class="close" onclick="closeModal('scoreModal')">×</button>
+<input type="hidden" id="scoreModalId">
+<div class="modal-title"><span class="eyebrow">QUICK SCORE ENTRY</span><h2 id="scoreModalName">Student</h2><p id="scoreModalMeta">—</p></div>
+<div class="score-modal-fields" id="scoreModalFields"></div>
+<div class="score-modal-preview">
+  <div><span>Total</span><b id="scoreModalTotal">0.00</b></div>
+  <div><span>Average</span><b id="scoreModalAverage">0.00</b></div>
+  <div><span>Standing</span><b id="scoreModalStanding">At Risk</b></div>
+</div>
+<div class="modal-actions"><button type="button" class="secondary" onclick="closeModal('scoreModal')">Cancel</button><button type="button" class="primary" onclick="saveScoreModal()">Save Scores</button></div>
+</div></div>
+
+<div id="profileModal" class="modal hidden"><div class="modal-card"><button class="close" onclick="closeModal('profileModal')">×</button>
+<div class="modal-title"><span class="eyebrow">STUDENT PROFILE</span><h2 id="profileModalName">Student</h2><p id="profileModalMeta">—</p><div id="profileModalStatus"></div></div>
+<div id="profileModalBody"></div>
+<div class="modal-actions" id="profileModalActions"></div>
+</div></div>
+
+
+<div id="attendanceScheduleModal" class="modal hidden"><div class="modal-card grading-modal schedule-modal"><button class="close" onclick="closeModal('attendanceScheduleModal')">×</button><div class="modal-title"><span class="eyebrow">ATTENDANCE CONFIGURATION</span><h2>Edit Attendance Schedule</h2><p>Tick the weekdays students attend class. Section settings override Year Level, which overrides the Default.</p></div><div id="attendanceScheduleInputs"></div><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal('attendanceScheduleModal')">Cancel</button><button type="button" class="primary" onclick="saveAttendanceSchedule()">Save Schedule</button></div></div></div>
+<div id="gradingSettingsModal" class="modal hidden"><div class="modal-card grading-modal"><button class="close" onclick="closeModal('gradingSettingsModal')">×</button><div class="modal-title"><span class="eyebrow">GRADING CONFIGURATION</span><h2>Edit Grade Computation</h2><p>Set the highest possible score of each item (10, 20, 50, 100 or any number), turn Summative On/Off, and set the percentage weight of each component. A component score is the total score ÷ highest possible total, and the weights of the components that are On must total exactly 100%.</p></div><div id="gradingInputs" class="grading-inputs"></div><div id="gradingTotal" class="grading-total-bar"></div><div class="security-note"><span>✓</span><div><b>Automatic computation</b><small>Changing a weight immediately changes the final grade calculation and Excel reports. Attendance remains automatically calculated from attendance records.</small></div></div><div class="modal-actions"><button type="button" class="secondary" onclick="autoBalanceWeights()">Auto-balance to 100%</button><button type="button" class="secondary" onclick="resetGradingWeights()">Reset to Default</button><button type="button" class="secondary" onclick="closeModal('gradingSettingsModal')">Cancel</button><button type="button" class="primary" onclick="saveGradingSettings()">Save Computation</button></div></div></div>
+<div id="pageLoader" class="page-loader hidden" aria-hidden="true"><div class="loader-orb"><span></span></div><div class="loader-text"><b>Loading BCC Student</b><small>Preparing your workspace…</small></div><div class="loader-line"><i></i></div></div>
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>
